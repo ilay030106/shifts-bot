@@ -189,6 +189,11 @@ class RemindersHandler:
             parse_mode=ParseMode.HTML
         )
     
+    async def handle_text_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+        """Handle text input for reminder settings."""
+        # Placeholder - implement as needed for reminder text input
+        return False
+    
     def get_reminders_display(self) -> str:
         """Get formatted reminders display."""
         if not self.user_reminders["enabled"]:

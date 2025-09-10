@@ -39,8 +39,6 @@ class TelegramClient:
         self.last_messages = {}
 
         # Default text handler that only records last messages (can be removed/overridden)
-        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
-
         TelegramClient._initialized = True
 
     # -----------------------------
@@ -127,6 +125,7 @@ class TelegramClient:
         text = update.message.text or ""
         self.last_messages[user_id] = text
         print(f"📩 User {user_id}: {text}")
+        
 
     async def send_message(self, chat_id: int, text: str, *, reply_markup: Optional[Any] = None, parse_mode: Optional[str] = None):
         """Helper to send a message via the app's bot."""

@@ -62,27 +62,30 @@ class PreferencesHandler:
     
     async def handle_text_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
         """Route text input to appropriate sub-handler."""
-        
-        # Check what the user is waiting for
-        waiting_for = context.user_data.get('waiting_for', '')
-        
-        # Route to shift times handler if relevant
-        if waiting_for.startswith(('start_time_', 'end_time_')):
-            return await self.shift_times_handler.handle_text_input(update, context)
-        
-        # Route to reminders handler if relevant
-        if waiting_for.startswith('reminder_'):
-            return await self.reminders_handler.handle_text_input(update, context)
-        
-        # Route to timezone handler if relevant
-        if waiting_for.startswith('timezone_'):
-            return await self.timezone_handler.handle_text_input(update, context)
-        
-        # Route to templates handler if relevant
-        if waiting_for.startswith('template_'):
-            return await self.templates_handler.handle_text_input(update, context)
-        
-        return False  # No handler could process this input
+        try:
+            # Check what the user is waiting for
+            waiting_for = context.user_data.get('waiting_for', '')
+            
+            # Route to shift times handler if relevant
+            if waiting_for.startswith(('start_time_', 'end_time_')):
+                return await self.shift_times_handler.handle_text_input(update, context)
+            
+            # Route to reminders handler if relevant
+            if waiting_for.startswith('reminder_'):
+                return await self.reminders_handler.handle_text_input(update, context)
+            
+            # Route to timezone handler if relevant
+            if waiting_for.startswith('timezone_'):
+                return await self.timezone_handler.handle_text_input(update, context)
+            
+            # Route to templates handler if relevant
+            if waiting_for.startswith('template_'):
+                return await self.templates_handler.handle_text_input(update, context)
+            
+            return False  # No handler could process this input
+        except Exception as e:
+            print(f"ERROR in PreferencesHandler.handle_text_input: {e}")
+            return False
     
     async def _handle_preference_navigation(self, query, data: str):
         """Handle main preference menu navigation."""
@@ -95,9 +98,15 @@ class PreferencesHandler:
             if callable(menu_config):
                 menu_config = menu_config()
             
+            # Build proper keyboard
+            button_rows = []
+            for row in menu_config["buttons"]:
+                button_row = self.telegram_client.inline_buttons_row(row)
+                button_rows.append(button_row)
+            
             await query.edit_message_text(
                 menu_config["title"],
-                reply_markup=self.telegram_client.inline_kb(menu_config["buttons"]),
+                reply_markup=self.telegram_client.inline_kb(button_rows),
                 parse_mode=ParseMode.HTML
             )
         else:
@@ -107,7 +116,7 @@ class PreferencesHandler:
                 f"פעולה: {data}\n"
                 f"(הפעולה הזו עדיין בפיתוח)",
                 reply_markup=self.telegram_client.inline_kb([
-                    [("🔙 חזרה להעדפות", "preferences_menu")]
+                    self.telegram_client.inline_buttons_row([("🔙 חזרה להעדפות", "preferences_menu")])
                 ]),
                 parse_mode=ParseMode.HTML
             )
@@ -142,7 +151,7 @@ class PreferencesHandler:
             f"↩️ <b>העדפות אופסו</b>\n\n"
             f"כל ההעדפות חזרו לברירת המחדל.",
             reply_markup=self.telegram_client.inline_kb([
-                [("🔙 חזרה להעדפות", "preferences_menu")]
+                self.telegram_client.inline_buttons_row([("🔙 חזרה להעדפות", "preferences_menu")])
             ]),
             parse_mode=ParseMode.HTML
         )

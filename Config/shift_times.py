@@ -15,21 +15,21 @@ class ShiftTimeManager:
         self.config_file = config_file
         self.default_times = {
             "morning": {
-                "name": "בוקר"[::-1],  # Correct way to reverse string
-                "start": "07:00",
-                "end": "15:00",
+                "name": "בוקר",  
+                "start": "09:30",
+                "end": "16:00",
                 "emoji": "🌅"
             },
             "afternoon": {
-                "name": "אמצע"[::-1],  # Correct way to reverse string
-                "start": "15:00", 
-                "end": "23:00",
+                "name": "אמצע",  
+                "start": "11:00", 
+                "end": "19:00",
                 "emoji": "🌇"
             },
             "night": {
-                "name": "לילה"[::-1],  # Correct way to reverse string
-                "start": "23:00",
-                "end": "07:00",
+                "name": "ערב",  
+                "start": "15:30",
+                "end": "22:00",
                 "emoji": "🌙"
             }
         }

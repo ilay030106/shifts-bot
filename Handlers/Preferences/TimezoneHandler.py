@@ -220,6 +220,11 @@ class TimezoneHandler:
         tz = pytz.timezone(self.user_timezone)
         return datetime.now(tz).strftime("%H:%M")
     
+    async def handle_text_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+        """Handle text input for timezone settings."""
+        # Placeholder - implement as needed for timezone text input
+        return False
+    
     def get_timezone_display(self) -> str:
         """Get formatted timezone display."""
         display_name = self.common_timezones.get(self.user_timezone, self.user_timezone)

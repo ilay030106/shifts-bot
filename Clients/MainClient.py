@@ -8,6 +8,14 @@ from Config.menus import (
     MAIN_MENU, PREFERENCES_MENU, AVAILABILITY_MENU, DOCS_MENU,
     HELP_TEXT, BACK_BUTTONS, MENU_CONFIGS
 )
+from Config.config import DEBUG
+from telegram.constants import ParseMode
+from telegram.ext import ContextTypes
+from Config.menus import (
+    MAIN_MENU, PREFERENCES_MENU, AVAILABILITY_MENU, DOCS_MENU,
+    HELP_TEXT, BACK_BUTTONS, MENU_CONFIGS
+)
+
 
 
 class MainClient:
@@ -22,13 +30,32 @@ class MainClient:
 
     def _build_menu(self, menu_config):
         """Build a keyboard from menu configuration."""
-        return self.telegram_client.inline_kb([
-            self.telegram_client.inline_buttons_row(row)
-            for row in menu_config["buttons"]
-        ])
+        # Convert the menu config buttons to InlineKeyboardButton rows
+        button_rows = []
+        for row in menu_config["buttons"]:
+            button_row = self.telegram_client.inline_buttons_row(row)
+            button_rows.append(button_row)
+        
+        return self.telegram_client.inline_kb(button_rows)
+    
+    def _build_keyboard(self, button_rows):
+        """Helper method to build keyboard from button tuples."""
+        keyboard_rows = []
+        for row in button_rows:
+            keyboard_row = self.telegram_client.inline_buttons_row(row)
+            keyboard_rows.append(keyboard_row)
+        return self.telegram_client.inline_kb(keyboard_rows)
 
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send the main menu."""
+        # Log command usage
+        if update.effective_user and DEBUG:
+            user_id = update.effective_user.id
+            username = update.effective_user.username or "No username"
+            first_name = update.effective_user.first_name or "No name"
+            
+            print(f"⚡ User {user_id} (@{username} - {first_name}) used command: /start")
+        
         await update.effective_chat.send_message(
             MAIN_MENU["title"],
             reply_markup=self._build_menu(MAIN_MENU),
@@ -36,13 +63,30 @@ class MainClient:
         )
     async def on_error(self, update, context):
         """Basic error handler."""
-        print(f"[ERROR] {context.error}")
+        error_msg = f"[ERROR] {context.error}"
+        
+        # Add user context if available
+        if update and update.effective_user and DEBUG:
+            user_id = update.effective_user.id
+            username = update.effective_user.username or "No username"
+            error_msg = f"[ERROR] User {user_id} (@{username}): {context.error}"
+        
+        print(error_msg)
 
     async def on_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button clicks and show different menus."""
         query = update.callback_query
         if not query:
             return
+        
+        # Log callback query (button click)
+        if update.effective_user and DEBUG:
+            user_id = update.effective_user.id
+            username = update.effective_user.username or "No username"
+            first_name = update.effective_user.first_name or "No name"
+            callback_data = query.data or "No data"
+            
+            print(f"🔘 User {user_id} (@{username} - {first_name}) clicked: {callback_data}")
         
         await query.answer()  # Acknowledge the button press
         data = query.data
@@ -85,8 +129,8 @@ class MainClient:
         elif data == "menu_help":
             await query.edit_message_text(
                 HELP_TEXT,
-                reply_markup=self.telegram_client.inline_kb([
-                    self.telegram_client.inline_buttons_row([BACK_BUTTONS["main"]])
+                reply_markup=self._build_keyboard([
+                    [BACK_BUTTONS["main"]]
                 ]),
                 parse_mode=ParseMode.HTML
             )
@@ -112,19 +156,43 @@ class MainClient:
 
     async def on_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle text messages and route to appropriate handlers."""
+        try:
+            # Log every text message
+            if not update.effective_user or not update.message:
+                return
+            
+            user_id = update.effective_user.id
+            username = update.effective_user.username or "No username"
+            first_name = update.effective_user.first_name or "No name"
+            text = update.message.text or ""
+            
+            # Store last message in telegram client
+            self.telegram_client.last_messages[user_id] = text
+            
+            # Log the message
+            print(f"📩 User {user_id} (@{username} - {first_name}): {text}")
+            
+            # Route to PreferencesHandler for preference-related text input
+            if await self.preferences_handler.handle_text_input(update, context):
+                return  # Successfully handled by preferences
+            
+            # Handle other text messages
+            await update.message.reply_text(
+                "💬 הודעה התקבלה!\n\n"
+                "השתמש ב-/start כדי לפתוח את התפריט.",
+                reply_markup=self._build_keyboard([
+                    [("🏠 תפריט ראשי", "menu_main")]
+                ])
+            )
         
-        # Route to PreferencesHandler for preference-related text input
-        if await self.preferences_handler.handle_text_input(update, context):
-            return  # Successfully handled by preferences
-        
-        # Handle other text messages
-        await update.message.reply_text(
-            "💬 הודעה התקבלה!\n\n"
-            "השתמש ב-/start כדי לפתוח את התפריט.",
-            reply_markup=self.telegram_client.inline_kb([
-                self.telegram_client.inline_buttons_row([("🏠 תפריט ראשי", "menu_main")])
-            ])
-        )
+        except Exception as e:
+            print(f"ERROR in MainClient.on_text: {e}")
+            # Try to send a basic error message
+            try:
+                await update.message.reply_text("❌ שגיאה בעיבוד ההודעה")
+            except:
+                pass
+
 
     async def _handle_unknown_action(self, query, data):
         """Handle actions that don't have specific menu configs yet."""

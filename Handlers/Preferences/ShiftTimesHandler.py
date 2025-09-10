@@ -74,11 +74,12 @@ class ShiftTimesHandler:
     
     async def handle_text_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
         """Handle text input for shift time editing."""
+        
         waiting_for = context.user_data.get('waiting_for')
         
         if not waiting_for or not waiting_for.startswith(('start_time_', 'end_time_')):
             return False
-        
+
         time_input = update.message.text.strip()
         
         # Validate time format
@@ -87,11 +88,11 @@ class ShiftTimesHandler:
                 "❌ פורמט שעה לא תקין!\n\n"
                 "השתמש בפורמט HH:MM (לדוגמה: 08:30)",
                 reply_markup=self.telegram_client.inline_kb([
-                    [("❌ ביטול", "edit_shift_times")]
+                    self.telegram_client.inline_buttons_row([("❌ ביטול", "edit_shift_times")])
                 ])
             )
             return True
-        
+
         # Parse the waiting action
         if waiting_for.startswith('start_time_'):
             shift_type = waiting_for.replace('start_time_', '')
@@ -119,9 +120,15 @@ class ShiftTimesHandler:
         """Show the main shift times editing menu."""
         menu_config = MENU_CONFIGS["edit_shift_times"]
         
+        # Build proper keyboard
+        button_rows = []
+        for row in menu_config["buttons"]:
+            button_row = self.telegram_client.inline_buttons_row(row)
+            button_rows.append(button_row)
+        
         await query.edit_message_text(
             menu_config["title"],
-            reply_markup=self.telegram_client.inline_kb(menu_config["buttons"]),
+            reply_markup=self.telegram_client.inline_kb(button_rows),
             parse_mode=ParseMode.HTML
         )
     
@@ -129,9 +136,15 @@ class ShiftTimesHandler:
         """Show menu for editing a specific shift."""
         menu_config = MENU_CONFIGS[f"edit_{shift_type}_shift"]()
         
+        # Build proper keyboard
+        button_rows = []
+        for row in menu_config["buttons"]:
+            button_row = self.telegram_client.inline_buttons_row(row)
+            button_rows.append(button_row)
+        
         await query.edit_message_text(
             menu_config["title"],
-            reply_markup=self.telegram_client.inline_kb(menu_config["buttons"]),
+            reply_markup=self.telegram_client.inline_kb(button_rows),
             parse_mode=ParseMode.HTML
         )
     
@@ -146,7 +159,7 @@ class ShiftTimesHandler:
             f"שלח שעת התחלה החדשה בפורמט HH:MM\n"
             f"לדוגמה: 08:00",
             reply_markup=self.telegram_client.inline_kb([
-                [("❌ ביטול", f"edit_{shift_type}_shift")]
+                self.telegram_client.inline_buttons_row([("❌ ביטול", f"edit_{shift_type}_shift")])
             ]),
             parse_mode=ParseMode.HTML
         )
@@ -165,7 +178,7 @@ class ShiftTimesHandler:
             f"שלח שעת סיום החדשה בפורמט HH:MM\n"
             f"לדוגמה: 16:00",
             reply_markup=self.telegram_client.inline_kb([
-                [("❌ ביטול", f"edit_{shift_type}_shift")]
+                self.telegram_client.inline_buttons_row([("❌ ביטול", f"edit_{shift_type}_shift")])
             ]),
             parse_mode=ParseMode.HTML
         )
@@ -191,7 +204,7 @@ class ShiftTimesHandler:
                     f"זמני המשמרת עודכנו:\n"
                     f"{self.shift_manager.get_shift_times_display()}",
                     reply_markup=self.telegram_client.inline_kb([
-                        [("🔙 חזרה לעריכת זמנים", "edit_shift_times")]
+                        self.telegram_client.inline_buttons_row([("🔙 חזרה לעריכת זמנים", "edit_shift_times")])
                     ]),
                     parse_mode=ParseMode.HTML
                 )
@@ -201,7 +214,7 @@ class ShiftTimesHandler:
                     f"לא הצלחתי לשמור את השינויים.\n"
                     f"נסה שוב.",
                     reply_markup=self.telegram_client.inline_kb([
-                        [("🔄 נסה שוב", f"edit_{shift_type}_shift")]
+                        self.telegram_client.inline_buttons_row([("🔄 נסה שוב", f"edit_{shift_type}_shift")])
                     ]),
                     parse_mode=ParseMode.HTML
                 )
@@ -231,33 +244,43 @@ class ShiftTimesHandler:
             f"כל זמני המשמרות חזרו לברירת המחדל:\n\n"
             f"{self.shift_manager.get_shift_times_display()}",
             reply_markup=self.telegram_client.inline_kb([
-                [("🔙 חזרה לעריכת זמנים", "edit_shift_times")]
+                self.telegram_client.inline_buttons_row([("🔙 חזרה לעריכת זמנים", "edit_shift_times")])
             ]),
             parse_mode=ParseMode.HTML
         )
     
     async def _show_time_confirmation(self, update: Update, shift_type: str, context: ContextTypes.DEFAULT_TYPE):
         """Show confirmation after time input."""
+        
         current_times = self.shift_manager.get_shift_times()
         pending = context.user_data['pending_shift_changes'][shift_type]
         
         new_start = pending.get('start', current_times[shift_type]['start'])
         new_end = pending.get('end', current_times[shift_type]['end'])
         
-        await update.message.reply_text(
+        confirmation_text = (
             f"✅ <b>זמן עודכן</b>\n\n"
             f"משמרת {current_times[shift_type]['name']}:\n"
             f"{current_times[shift_type]['emoji']} {new_start}-{new_end}\n\n"
-            f"שמור את השינויים או המשך לערוך:",
-            reply_markup=self.telegram_client.inline_kb([
-                [
-                    ("💾 שמור", f"save_shift_{shift_type}"),
-                    ("✏️ המשך עריכה", f"edit_{shift_type}_shift")
-                ],
-                [("❌ בטל", f"cancel_edit_{shift_type}")]
-            ]),
-            parse_mode=ParseMode.HTML
+            f"שמור את השינויים או המשך לערוך:"
         )
+        
+        try:
+            await update.message.reply_text(
+                confirmation_text,
+                reply_markup=self.telegram_client.inline_kb([
+                    self.telegram_client.inline_buttons_row([
+                        ("💾 שמור", f"save_shift_{shift_type}"),
+                        ("✏️ המשך עריכה", f"edit_{shift_type}_shift")
+                    ]),
+                    self.telegram_client.inline_buttons_row([("❌ בטל", f"cancel_edit_{shift_type}")])
+                ]),
+                parse_mode=ParseMode.HTML
+            )
+        except Exception as e:
+            print(f"Error sending confirmation: {e}")
+            # Try a simple fallback message
+            await update.message.reply_text(f"Time updated to {new_start}-{new_end}")
     
     def _validate_time_format(self, time_str: str) -> bool:
         """Validate time format (HH:MM)."""
@@ -289,7 +312,7 @@ class ShiftTimesHandler:
             f"כל זמני המשמרות חזרו לברירת המחדל:\n\n"
             f"{self.shift_manager.get_shift_times_display()}",
             reply_markup=self.telegram_client.inline_kb([
-                [("🔙 חזרה להעדפות", "preferences_menu")]
+                self.telegram_client.inline_buttons_row([("🔙 חזרה להעדפות", "preferences_menu")])
             ]),
             parse_mode=ParseMode.HTML
         )
