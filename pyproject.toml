@@ -12,6 +12,7 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "python-dotenv>=1.1.1",
     "python-telegram-bot>=22.3",
+    "pytz>=2025.2",
     "tzdata>=2.5.2",
 ]
 

@@ -3,6 +3,17 @@ Menu configuration and text constants for the shifts bot.
 Centralizes all UI text and menu structures.
 """
 
+from .shift_times import shift_time_manager
+
+# =============================================================================
+# DEFAULT SHIFT TIME WINDOWS
+# =============================================================================
+
+# Access shift times through the manager
+def get_shift_times_display():
+    """Generate formatted shift times display text."""
+    return shift_time_manager.get_shift_times_display()
+
 # =============================================================================
 # MAIN MENUS SECTION
 # =============================================================================
@@ -12,7 +23,7 @@ MAIN_MENU = {
     "title": "🤖 <b>בוט משמרות</b>\n\nבחר אופציה:",
     "buttons": [
         [
-            ("הגדרות ברירת מחדל", "defaults_menu"),
+            ("העדפות", "preferences_menu"),
             ("זמינות", "menu_availability")
         ],
         [
@@ -22,9 +33,9 @@ MAIN_MENU = {
     ]
 }
 
-# Settings/Defaults menu
-DEFAULTS_MENU = {
-    "title": "⚙️ <b>הגדרות ברירת מחדל</b>\n\nשינוי ברירת המחדל שלך:",
+# Preferences menu
+PREFERENCES_MENU = {
+    "title": "⚙️ <b>העדפות</b>\n\nשינוי ההעדפות שלך:",
     "buttons": [
         [
             ("זמני משמרות", "settings_shift_times"),
@@ -71,29 +82,75 @@ DOCS_MENU = {
 }
 
 # =============================================================================
-# SETTINGS SUBMENUS SECTION
+# PREFERENCES SUBMENUS SECTION
 # =============================================================================
 
-SETTINGS_SHIFT_TIMES = {
+PREFERENCES_SHIFT_TIMES = {
     "title": (
-        "⚙️ <b>הגדרות → זמני משמרות</b>\n\n"
+        "⚙️ <b>העדפות → זמני משמרות</b>\n\n"
         "הגדר את זמני המשמרות שלך:\n"
-        "• בוקר: 07:00-15:00\n"
-        "• צהריים: 15:00-23:00\n"
-        "• לילה: 23:00-07:00\n\n"
+        f"{get_shift_times_display()}\n\n"
         "(כאן תהיה אפשרות לערוך)"
     ),
     "buttons": [
         [
             ("ערוך זמנים", "edit_shift_times"),
-            ("🔙 חזרה להגדרות", "defaults_menu")
+            ("🔙 חזרה להעדפות", "preferences_menu")
         ]
     ]
 }
 
-SETTINGS_REMINDERS = {
+# Edit shift times menu
+EDIT_SHIFT_TIMES_MENU = {
     "title": (
-        "⚙️ <b>הגדרות → התראות</b>\n\n"
+        "⚙️ <b>עריכת זמני משמרות</b>\n\n"
+        "בחר איזה משמרת לערוך:\n"
+        f"{get_shift_times_display()}"
+    ),
+    "buttons": [
+        [
+            ("🌅 ערוך בוקר", "edit_morning_shift"),
+            ("🌇 ערוך אמצע", "edit_afternoon_shift")
+        ],
+        [
+            ("🌙 ערוך לילה", "edit_night_shift"),
+            ("↩️ איפוס לברירת מחדל", "reset_shift_times")
+        ],
+        [
+            ("🔙 חזרה", "settings_shift_times")
+        ]
+    ]
+}
+
+# Individual shift editing menus
+def create_shift_edit_menu(shift_type: str):
+    """Create a menu for editing a specific shift type."""
+    all_times = shift_time_manager.get_shift_times()
+    config = all_times[shift_type]
+    return {
+        "title": (
+            f"⚙️ <b>עריכת משמרת {config['name']}</b>\n\n"
+            f"זמן נוכחי: {config['emoji']} {config['start']}-{config['end']}\n\n"
+            "בחר מה לערוך:"
+        ),
+        "buttons": [
+            [
+                ("🕐 שנה שעת התחלה", f"edit_start_{shift_type}"),
+                ("🕑 שנה שעת סיום", f"edit_end_{shift_type}")
+            ],
+            [
+                ("💾 שמור שינויים", f"save_shift_{shift_type}"),
+                ("❌ בטל שינויים", f"cancel_edit_{shift_type}")
+            ],
+            [
+                ("🔙 חזרה", "edit_shift_times")
+            ]
+        ]
+    }
+
+PREFERENCES_REMINDERS = {
+    "title": (
+        "⚙️ <b>העדפות → התראות</b>\n\n"
         "הגדרות התראות:\n"
         "• התראה 30 דקות לפני\n"
         "• התראה 15 דקות לפני\n\n"
@@ -102,28 +159,28 @@ SETTINGS_REMINDERS = {
     "buttons": [
         [
             ("ערוך התראות", "edit_reminders"),
-            ("🔙 חזרה להגדרות", "defaults_menu")
+            ("🔙 חזרה להעדפות", "preferences_menu")
         ]
     ]
 }
 
-SETTINGS_TIMEZONE = {
+PREFERENCES_TIMEZONE = {
     "title": (
-        "⚙️ <b>הגדרות → אזור זמן</b>\n\n"
+        "⚙️ <b>העדפות → אזור זמן</b>\n\n"
         "אזור זמן נוכחי: Asia/Jerusalem\n\n"
         "(כאן תהיה אפשרות לשנות)"
     ),
     "buttons": [
         [
             ("שנה אזור זמן", "edit_timezone"),
-            ("🔙 חזרה להגדרות", "defaults_menu")
+            ("🔙 חזרה להעדפות", "preferences_menu")
         ]
     ]
 }
 
-SETTINGS_TEMPLATES = {
+PREFERENCES_TEMPLATES = {
     "title": (
-        "⚙️ <b>הגדרות → תבניות</b>\n\n"
+        "⚙️ <b>העדפות → תבניות</b>\n\n"
         "תבניות עבור תיאור משמרות:\n"
         "• משמרת בוקר\n"
         "• משמרת ערב\n"
@@ -133,7 +190,7 @@ SETTINGS_TEMPLATES = {
     "buttons": [
         [
             ("ערוך תבניות", "edit_templates"),
-            ("🔙 חזרה להגדרות", "defaults_menu")
+            ("🔙 חזרה להעדפות", "preferences_menu")
         ]
     ]
 }
@@ -242,7 +299,7 @@ DOCS_DELETE = {
 # Help text
 HELP_TEXT = (
     "❓ <b>עזרה</b>\n\n"
-    "• <b>הגדרות ברירת מחדל</b>: שינוי זמני משמרות, התראות וכו'\n"
+    "• <b>העדפות</b>: שינוי זמני משמרות, התראות וכו'\n"
     "• <b>זמינות</b>: בדיקה איזה משמרות אפשר לעבוד\n"
     "• <b>תיעוד משמרות</b>: הוסף או ערוך משמרות\n\n"
     "השתמש ב-/start כדי לחזור לתפריט הראשי."
@@ -251,7 +308,7 @@ HELP_TEXT = (
 # Back button configurations
 BACK_BUTTONS = {
     "main": ("🔙 חזרה לתפריט הראשי", "menu_main"),
-    "settings": ("🔙 חזרה להגדרות", "defaults_menu"),
+    "preferences": ("🔙 חזרה להעדפות", "preferences_menu"),
     "availability": ("🔙 חזרה לזמינות", "menu_availability"),
     "docs": ("🔙 חזרה לתיעוד משמרות", "menu_docs")
 }
@@ -278,15 +335,21 @@ ACTION_NAMES = {
 MENU_CONFIGS = {
     # Main menus
     "menu_main": MAIN_MENU,
-    "defaults_menu": DEFAULTS_MENU,
+    "preferences_menu": PREFERENCES_MENU,
     "menu_availability": AVAILABILITY_MENU,
     "menu_docs": DOCS_MENU,
     
-    # Settings submenus
-    "settings_shift_times": SETTINGS_SHIFT_TIMES,
-    "settings_reminders": SETTINGS_REMINDERS,
-    "settings_timezone": SETTINGS_TIMEZONE,
-    "settings_templates": SETTINGS_TEMPLATES,
+    # Preferences submenus
+    "settings_shift_times": PREFERENCES_SHIFT_TIMES,
+    "settings_reminders": PREFERENCES_REMINDERS,
+    "settings_timezone": PREFERENCES_TIMEZONE,
+    "settings_templates": PREFERENCES_TEMPLATES,
+    
+    # Shift time editing menus
+    "edit_shift_times": EDIT_SHIFT_TIMES_MENU,
+    "edit_morning_shift": lambda: create_shift_edit_menu("morning"),
+    "edit_afternoon_shift": lambda: create_shift_edit_menu("afternoon"), 
+    "edit_night_shift": lambda: create_shift_edit_menu("night"),
     
     # Availability submenus
     "availability_this_week": AVAILABILITY_THIS_WEEK,

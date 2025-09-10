@@ -1,10 +1,11 @@
 from .TelegramClient import TelegramClient
 from .CalenderClient import CalenderClient
+from Handlers import PreferencesHandler
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from Config.menus import (
-    MAIN_MENU, DEFAULTS_MENU, AVAILABILITY_MENU, DOCS_MENU,
+    MAIN_MENU, PREFERENCES_MENU, AVAILABILITY_MENU, DOCS_MENU,
     HELP_TEXT, BACK_BUTTONS, MENU_CONFIGS
 )
 
@@ -13,8 +14,10 @@ class MainClient:
     def __init__(self):
         self.telegram_client = TelegramClient()
         self.calendar_client = CalenderClient()
+        self.preferences_handler = PreferencesHandler(self.telegram_client)
         self.telegram_client.add_command_handler("start", self.cmd_start)
         self.telegram_client.add_callback_query_handler(self.on_callback)
+        self.telegram_client.add_text_handler(self.on_text)
         self.telegram_client.add_error_handler(self.on_error)
 
     def _build_menu(self, menu_config):
@@ -44,7 +47,12 @@ class MainClient:
         await query.answer()  # Acknowledge the button press
         data = query.data
         
-        # Route to different menus based on callback data
+        # Route to PreferencesHandler first
+        if await self.preferences_handler.can_handle(data):
+            await self.preferences_handler.handle_callback(query, data, context)
+            return
+        
+        # Handle main navigation
         if data == "menu_main":
             await query.edit_message_text(
                 MAIN_MENU["title"],
@@ -52,10 +60,11 @@ class MainClient:
                 parse_mode=ParseMode.HTML
             )
         
-        elif data == "defaults_menu":
+        elif data == "preferences_menu":  # Updated from defaults_menu
+            from Config.menus import PREFERENCES_MENU
             await query.edit_message_text(
-                DEFAULTS_MENU["title"],
-                reply_markup=self._build_menu(DEFAULTS_MENU),
+                PREFERENCES_MENU["title"],
+                reply_markup=self._build_menu(PREFERENCES_MENU),
                 parse_mode=ParseMode.HTML
             )
         
@@ -86,6 +95,11 @@ class MainClient:
         elif data in MENU_CONFIGS:
             # Direct menu lookup - much cleaner!
             menu_config = MENU_CONFIGS[data]
+            
+            # Handle callable menu configs (like dynamic shift edit menus)
+            if callable(menu_config):
+                menu_config = menu_config()
+            
             await query.edit_message_text(
                 menu_config["title"],
                 reply_markup=self._build_menu(menu_config),
@@ -95,6 +109,22 @@ class MainClient:
         # Handle actions that don't have direct menu configs yet
         else:
             await self._handle_unknown_action(query, data)
+
+    async def on_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle text messages and route to appropriate handlers."""
+        
+        # Route to PreferencesHandler for preference-related text input
+        if await self.preferences_handler.handle_text_input(update, context):
+            return  # Successfully handled by preferences
+        
+        # Handle other text messages
+        await update.message.reply_text(
+            "💬 הודעה התקבלה!\n\n"
+            "השתמש ב-/start כדי לפתוח את התפריט.",
+            reply_markup=self.telegram_client.inline_kb([
+                self.telegram_client.inline_buttons_row([("🏠 תפריט ראשי", "menu_main")])
+            ])
+        )
 
     async def _handle_unknown_action(self, query, data):
         """Handle actions that don't have specific menu configs yet."""
