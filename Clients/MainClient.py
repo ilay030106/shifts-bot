@@ -5,7 +5,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from Config.menus import (
     MAIN_MENU, DEFAULTS_MENU, AVAILABILITY_MENU, DOCS_MENU,
-    HELP_TEXT, SUBMENU_TEMPLATES, BACK_BUTTONS, ACTION_NAMES
+    HELP_TEXT, BACK_BUTTONS, MENU_CONFIGS
 )
 
 
@@ -82,39 +82,33 @@ class MainClient:
                 parse_mode=ParseMode.HTML
             )
         
-        # Handle specific actions within submenus
-        elif data.startswith("settings_"):
-            action = data.replace("settings_", "")
-            action_name = ACTION_NAMES.get(action, action)
+        # Handle specific actions within submenus - use centralized menu configs
+        elif data in MENU_CONFIGS:
+            # Direct menu lookup - much cleaner!
+            menu_config = MENU_CONFIGS[data]
             await query.edit_message_text(
-                SUBMENU_TEMPLATES["settings"].format(action=action_name),
-                reply_markup=self.telegram_client.inline_kb([
-                    self.telegram_client.inline_buttons_row([BACK_BUTTONS["settings"]])
-                ]),
+                menu_config["title"],
+                reply_markup=self._build_menu(menu_config),
                 parse_mode=ParseMode.HTML
             )
         
-        elif data.startswith("availability_"):
-            action = data.replace("availability_", "")
-            action_name = ACTION_NAMES.get(action, action)
-            await query.edit_message_text(
-                SUBMENU_TEMPLATES["availability"].format(action=action_name),
-                reply_markup=self.telegram_client.inline_kb([
-                    self.telegram_client.inline_buttons_row([BACK_BUTTONS["availability"]])
-                ]),
-                parse_mode=ParseMode.HTML
-            )
-        
-        elif data.startswith("docs_"):
-            action = data.replace("docs_", "")
-            action_name = ACTION_NAMES.get(action, action)
-            await query.edit_message_text(
-                SUBMENU_TEMPLATES["docs"].format(action=action_name),
-                reply_markup=self.telegram_client.inline_kb([
-                    self.telegram_client.inline_buttons_row([BACK_BUTTONS["docs"]])
-                ]),
-                parse_mode=ParseMode.HTML
-            )
+        # Handle actions that don't have direct menu configs yet
+        else:
+            await self._handle_unknown_action(query, data)
+
+    async def _handle_unknown_action(self, query, data):
+        """Handle actions that don't have specific menu configs yet."""
+        # This is a fallback for actions like edit_shift_times, start_add_shift, etc.
+        await query.edit_message_text(
+            f"� <b>פעולה: {data}</b>\n\n"
+            f"פעולה זו עדיין בפיתוח...\n"
+            f"(כאן תהיה הלוגיקה הספציפית)",
+            reply_markup=self.telegram_client.inline_kb([
+                self.telegram_client.inline_buttons_row([BACK_BUTTONS["main"]])
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+
 
     def run(self):
         """Start the bot."""
