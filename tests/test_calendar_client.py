@@ -5,11 +5,6 @@ This script demonstrates basic operations like creating events, checking for ove
 and retrieving upcoming events.
 """
 
-import sys
-import os
-# Add the project root to Python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from datetime import datetime, timedelta
 from Clients.CalenderClient import CalenderClient
 from Config.config import DEFAULT_TIME_ZONE
