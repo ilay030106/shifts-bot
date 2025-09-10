@@ -1,6 +1,6 @@
-import os.path
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -12,6 +12,11 @@ from dateutil import parser
 
 # Use events scope since you create/update events in this MVP
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+# Get the project root directory (parent of the Clients directory)
+PROJECT_ROOT = Path(__file__).parent.parent
+CREDENTIALS_FILE = PROJECT_ROOT / "credentials.json"
+TOKEN_FILE = PROJECT_ROOT / "token.json"
 
 
 class CalenderClient:
@@ -40,18 +45,18 @@ class CalenderClient:
             return  # Prevent re-initialization
 
         creds = None
-        if os.path.exists("token.json"):
-            creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+        if TOKEN_FILE.exists():
+            creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
 
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    "credentials.json", SCOPES
+                    str(CREDENTIALS_FILE), SCOPES
                 )
                 creds = flow.run_local_server(port=0)
-            with open("token.json", "w") as token:
+            with open(TOKEN_FILE, "w") as token:
                 token.write(creds.to_json())
 
         self.service = build("calendar", "v3", credentials=creds)
