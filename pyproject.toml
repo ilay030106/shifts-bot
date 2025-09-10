@@ -15,7 +15,3 @@ dependencies = [
     "tzdata>=2.5.2",
 ]
 
-[project.scripts]
-telegram = "python Clients/TelegramClient.py"
-calendar = "python tests/test_calendar_client.py"
-shifts-bot = "python main.py"
