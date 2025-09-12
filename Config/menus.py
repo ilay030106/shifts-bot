@@ -89,7 +89,7 @@ PREFERENCES_SHIFT_TIMES = {
     "title": (
         "⚙️ <b>העדפות → זמני משמרות</b>\n\n"
         "הגדר את זמני המשמרות שלך:\n"
-        f"{get_shift_times_display()}\n\n"
+        "{shift_times_display}\n\n"
         "(כאן תהיה אפשרות לערוך)"
     ),
     "buttons": [
@@ -105,7 +105,7 @@ EDIT_SHIFT_TIMES_MENU = {
     "title": (
         "⚙️ <b>עריכת זמני משמרות</b>\n\n"
         "בחר איזה משמרת לערוך:\n"
-        f"{get_shift_times_display()}"
+        "{shift_times_display}"
     ),
     "buttons": [
         [
@@ -113,7 +113,7 @@ EDIT_SHIFT_TIMES_MENU = {
             ("🌇 ערוך אמצע", "edit_afternoon_shift")
         ],
         [
-            ("🌙 ערוך לילה", "edit_night_shift"),
+            
             ("↩️ איפוס לברירת מחדל", "reset_shift_times")
         ],
         [
@@ -125,7 +125,7 @@ EDIT_SHIFT_TIMES_MENU = {
 # Individual shift editing menus
 def create_shift_edit_menu(shift_type: str):
     """Create a menu for editing a specific shift type."""
-    all_times = shift_time_manager.get_shift_times()
+    all_times = shift_time_manager.user_times
     config = all_times[shift_type]
     return {
         "title": (
@@ -349,7 +349,7 @@ MENU_CONFIGS = {
     "edit_shift_times": EDIT_SHIFT_TIMES_MENU,
     "edit_morning_shift": lambda: create_shift_edit_menu("morning"),
     "edit_afternoon_shift": lambda: create_shift_edit_menu("afternoon"), 
-    "edit_night_shift": lambda: create_shift_edit_menu("night"),
+    
     
     # Availability submenus
     "availability_this_week": AVAILABILITY_THIS_WEEK,

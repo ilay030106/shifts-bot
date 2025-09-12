@@ -98,6 +98,13 @@ class PreferencesHandler:
             if callable(menu_config):
                 menu_config = menu_config()
             
+            # Format title for shift times menu
+            title = menu_config["title"]
+            if data == "settings_shift_times":
+                title = title.format(
+                    shift_times_display=self.shift_times_handler.get_shift_times_display()
+                )
+            
             # Build proper keyboard
             button_rows = []
             for row in menu_config["buttons"]:
@@ -105,7 +112,7 @@ class PreferencesHandler:
                 button_rows.append(button_row)
             
             await query.edit_message_text(
-                menu_config["title"],
+                title,
                 reply_markup=self.telegram_client.inline_kb(button_rows),
                 parse_mode=ParseMode.HTML
             )

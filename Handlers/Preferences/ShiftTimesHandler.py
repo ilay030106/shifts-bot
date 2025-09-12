@@ -20,8 +20,8 @@ class ShiftTimesHandler:
     async def can_handle(self, data: str) -> bool:
         """Check if this handler can process the given callback data."""
         shift_time_actions = [
-            "edit_shift_times", "edit_morning_shift", "edit_afternoon_shift", 
-            "edit_night_shift", "reset_shift_times"
+            "edit_shift_times", "edit_morning_shift", "edit_noon_shift", 
+            "edit_evening_shift", "reset_shift_times"
         ]
         
         return (
@@ -38,7 +38,7 @@ class ShiftTimesHandler:
             return True
         
         # Individual shift editing menus
-        elif data in ["edit_morning_shift", "edit_afternoon_shift", "edit_night_shift"]:
+        elif data in ["edit_morning_shift", "edit_noon_shift", "edit_evening_shift"]:
             shift_type = data.replace("edit_", "").replace("_shift", "")
             await self._show_individual_shift_menu(query, shift_type)
             return True
@@ -120,6 +120,11 @@ class ShiftTimesHandler:
         """Show the main shift times editing menu."""
         menu_config = MENU_CONFIGS["edit_shift_times"]
         
+        # Format the title with current shift times
+        formatted_title = menu_config["title"].format(
+            shift_times_display=self.shift_manager.get_shift_times_display()
+        )
+        
         # Build proper keyboard
         button_rows = []
         for row in menu_config["buttons"]:
@@ -127,7 +132,7 @@ class ShiftTimesHandler:
             button_rows.append(button_row)
         
         await query.edit_message_text(
-            menu_config["title"],
+            formatted_title,
             reply_markup=self.telegram_client.inline_kb(button_rows),
             parse_mode=ParseMode.HTML
         )
@@ -150,7 +155,7 @@ class ShiftTimesHandler:
     
     async def _handle_edit_start_time(self, query, shift_type: str, context: ContextTypes.DEFAULT_TYPE):
         """Handle editing start time for a shift."""
-        current_times = self.shift_manager.get_shift_times()
+        current_times = self.shift_manager.user_times
         current_start = current_times[shift_type]["start"]
         
         await query.edit_message_text(
@@ -169,7 +174,7 @@ class ShiftTimesHandler:
     
     async def _handle_edit_end_time(self, query, shift_type: str, context: ContextTypes.DEFAULT_TYPE):
         """Handle editing end time for a shift."""
-        current_times = self.shift_manager.get_shift_times()
+        current_times = self.shift_manager.user_times
         current_end = current_times[shift_type]["end"]
         
         await query.edit_message_text(
@@ -252,7 +257,7 @@ class ShiftTimesHandler:
     async def _show_time_confirmation(self, update: Update, shift_type: str, context: ContextTypes.DEFAULT_TYPE):
         """Show confirmation after time input."""
         
-        current_times = self.shift_manager.get_shift_times()
+        current_times = self.shift_manager.user_times
         pending = context.user_data['pending_shift_changes'][shift_type]
         
         new_start = pending.get('start', current_times[shift_type]['start'])
