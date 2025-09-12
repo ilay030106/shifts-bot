@@ -93,7 +93,7 @@ class TimezoneHandler:
             return True
         
         elif data == "reset_timezone":
-            await self._reset_timezone(query, context)
+            await self.reset_timezone(query, context)
             return True
     
     async def _show_timezone_menu(self, query, context: ContextTypes.DEFAULT_TYPE):
@@ -235,24 +235,25 @@ class TimezoneHandler:
                 parse_mode=ParseMode.HTML
             )
     
-    async def _reset_timezone(self, query, context: ContextTypes.DEFAULT_TYPE):
+    async def reset_timezone(self, query, context: ContextTypes.DEFAULT_TYPE = None):
         """Reset timezone to default."""
         self.user_timezone = self.default_timezone
         self._save_timezone()
         
-        # Clear timezone config mode
-        context.user_data['timezone_config_mode'] = False
-        
-        display_name = self.common_timezones[self.default_timezone]
-        
-        await query.edit_message_text(
-            f"↩️ <b>אזור זמן אופס</b>\n\n"
-            f"אזור זמן: {display_name}",
-            reply_markup=self.telegram_client.inline_kb([
-                [("🔙 חזרה", "edit_timezone")]
-            ]),
-            parse_mode=ParseMode.HTML
-        )
+        if context:
+            # Clear timezone config mode
+            context.user_data['timezone_config_mode'] = False
+            
+            display_name = self.common_timezones[self.default_timezone]
+            
+            await query.edit_message_text(
+                f"↩️ <b>אזור זמן אופס</b>\n\n"
+                f"אזור זמן: {display_name}",
+                reply_markup=self.telegram_client.inline_kb([
+                    [("🔙 חזרה", "edit_timezone")]
+                ]),
+                parse_mode=ParseMode.HTML
+            )
     
     def get_current_timezone(self) -> str:
         """Get current timezone string."""
