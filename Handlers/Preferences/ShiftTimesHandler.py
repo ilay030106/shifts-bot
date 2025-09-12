@@ -410,7 +410,8 @@ class ShiftTimesHandler:
                 parse_mode=ParseMode.HTML
             )
         except Exception as e:
-            print(f"Error sending confirmation: {e}")
+            import logging
+            logging.getLogger(__name__).exception("Error sending confirmation: %s", e)
             # Try a simple fallback message
             await update.message.reply_text(f"Time updated to {new_start}-{new_end}")
     

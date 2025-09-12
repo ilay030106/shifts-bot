@@ -35,8 +35,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = client.inline_kb([
         client.inline_buttons_row([
             ("Settings", "settings"),
-            ("Availability", "availability"), 
-            ("Documentation", "docs")
+            ("Availability", "availability"),
+            ("Documentation", "docs"),
         ])
     ])
     await update.effective_chat.send_message(
@@ -65,22 +65,25 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_error(update: Optional[object], context: ContextTypes.DEFAULT_TYPE):
     """Basic async error logger (required by PTB v20+)."""
     err = getattr(context, "error", None)
-    print("[ERROR] Exception in handler:", err)
+    import logging
+    logging.getLogger(__name__).error("[ERROR] Exception in handler: %s", err)
     if err:
         traceback.print_exception(type(err), err, err.__traceback__)
 
 
 def test_telegram_client() -> bool:
     """Configure the TelegramClient and start polling for a manual test session."""
-    print("🤖 Testing TelegramClient (polling mode)...")
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("🤖 Testing TelegramClient (polling mode)...")
 
     if not TELEGRAM_BOT_TOKEN:
-        print("❌ TELEGRAM_BOT_TOKEN is missing. Define it in your environment or .env file.")
+        logger.error("❌ TELEGRAM_BOT_TOKEN is missing. Define it in your environment or .env file.")
         return False
 
     try:
         client = TelegramClient()
-        print("✅ TelegramClient initialized successfully")
+        logger.info("✅ TelegramClient initialized successfully")
 
         # Register handlers
         client.add_command_handler("start", cmd_start)
@@ -88,49 +91,40 @@ def test_telegram_client() -> bool:
         client.add_callback_query_handler(on_callback)
         client.add_error_handler(on_error)
 
-        print("\n📱 How to test:")
-        print("1) Open Telegram and start a chat with your bot.")
-        print("2) Send /start to see the inline keyboard.")
-        print("3) Tap a button to test callback queries.")
-        print("4) Send any text to test the echo handler.")
-        print("5) Press Ctrl+C here to stop.\n")
+        logger.info("📱 How to test: open Telegram and interact with the bot (interactive).")
 
         # Blocking run until Ctrl+C (clears webhook automatically)
         client.run_polling(drop_pending_updates=True)
         return True
 
     except KeyboardInterrupt:
-        print("\n🛑 Stopping (KeyboardInterrupt)...")
+        logger.info("🛑 Stopping (KeyboardInterrupt)...")
         return True
     except Exception as e:
-        print(f"❌ Test failed with error: {e}")
+        logger.exception("❌ Test failed with error: %s", e)
         traceback.print_exc()
         return False
 
 
 def main():
-    print("=" * 60)
-    print("💬  SHIFTS-BOT TELEGRAM CLIENT TEST")
-    print("=" * 60)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("💬  SHIFTS-BOT TELEGRAM CLIENT TEST")
 
-    print("\nThis script will start your bot in polling mode and wait for messages.")
-    print("Make sure you have:")
-    print("  1. TELEGRAM_BOT_TOKEN configured (env or .env)")
-    print("  2. Internet connection")
+    logger.info("This script will start your bot in polling mode and wait for messages.")
+    logger.info("Make sure you have TELEGRAM_BOT_TOKEN configured and an Internet connection.")
 
     response = input("\nContinue and start polling? (y/N): ").strip().lower()
     if response not in ("y", "yes"):
-        print("❌ Test cancelled by user.")
+        logger.info("❌ Test cancelled by user.")
         return
 
     success = test_telegram_client()
 
-    print("\n" + "=" * 60)
     if success:
-        print("🎉 TELEGRAM TEST COMPLETED (bot stopped)")
+        logger.info("🎉 TELEGRAM TEST COMPLETED (bot stopped)")
     else:
-        print("❌ TELEGRAM TEST FAILED")
-    print("=" * 60)
+        logger.error("❌ TELEGRAM TEST FAILED")
 
 
 if __name__ == "__main__":

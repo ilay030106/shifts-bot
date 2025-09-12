@@ -6,8 +6,9 @@ Handles all reminder-related preferences and configuration.
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
-import json
 import os
+import logging
+from utils import atomic_read_json, atomic_write_json
 
 
 class RemindersHandler:
@@ -25,21 +26,17 @@ class RemindersHandler:
     
     def _load_reminders(self):
         """Load user reminder preferences."""
-        if os.path.exists(self.config_file):
-            try:
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                pass
-        return self.default_reminders.copy()
+        data = atomic_read_json(self.config_file, default=None)
+        if data is None:
+            return self.default_reminders.copy()
+        return data
     
     def _save_reminders(self):
         """Save reminder preferences to file."""
         try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(self.user_reminders, f, ensure_ascii=False, indent=2)
+            atomic_write_json(self.config_file, self.user_reminders)
         except Exception as e:
-            print(f"Error saving reminders: {e}")
+            logging.getLogger(__name__).exception("Error saving reminders: %s", e)
     
     async def can_handle(self, data: str) -> bool:
         """Check if this handler can process the given callback data."""
@@ -273,16 +270,8 @@ class RemindersHandler:
         """Reset reminders to defaults."""
         import copy
         self.user_reminders = copy.deepcopy(self.default_reminders)
-        print(f"DEBUG: Resetting reminders to: {self.user_reminders}")
+        logging.getLogger(__name__).debug("Resetting reminders to: %s", self.user_reminders)
         self._save_reminders()
-        
-        # Verify the file was saved
-        try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                saved_data = json.load(f)
-            print(f"DEBUG: Saved data in file: {saved_data}")
-        except Exception as e:
-            print(f"DEBUG: Error reading saved file: {e}")
         
         formatted_defaults = [self._format_time(m) for m in self.default_reminders["before_shift"]]
         defaults_list = ", ".join(formatted_defaults)
@@ -301,7 +290,7 @@ class RemindersHandler:
         import copy
         self.user_reminders = copy.deepcopy(self.default_reminders)
         self._save_reminders()
-        print(f"DEBUG: Reset all reminders to: {self.user_reminders}")
+        logging.getLogger(__name__).debug("Reset all reminders to: %s", self.user_reminders)
     
     async def handle_text_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
         """Handle text input for reminder settings."""

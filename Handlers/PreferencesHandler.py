@@ -3,6 +3,7 @@ Preferences Handler - Main orchestrator for all preference-related handlers.
 Coordinates shift times, reminders, and timezone handlers.
 """
 
+import logging
 from .Preferences import ShiftTimesHandler, RemindersHandler, TimezoneHandler
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -46,14 +47,15 @@ class PreferencesHandler:
     
     async def handle_callback(self, query, data: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
         """Route callback to appropriate sub-handler or handle main navigation."""
-        print(f"PreferencesHandler: Received callback data: {data}")  # Debug
+        logger = logging.getLogger(__name__)
+        logger.debug("PreferencesHandler: Received callback data: %s", data)
         
         # Try each sub-handler first
         for handler_name, handler in self.handlers.items():
             can_handle = await handler.can_handle(data)
-            print(f"PreferencesHandler: {handler_name} can_handle({data}): {can_handle}")  # Debug
+            logger.debug("PreferencesHandler: %s can_handle(%s): %s", handler_name, data, can_handle)
             if can_handle:
-                print(f"PreferencesHandler: Routing to {handler_name}")  # Debug
+                logger.debug("PreferencesHandler: Routing to %s", handler_name)
                 return await handler.handle_callback(query, data, context)
         
         # Handle main preference navigation
@@ -87,7 +89,7 @@ class PreferencesHandler:
             
             return False  # No handler could process this input
         except Exception as e:
-            print(f"ERROR in PreferencesHandler.handle_text_input: {e}")
+            logging.getLogger(__name__).exception("ERROR in PreferencesHandler.handle_text_input: %s", e)
             return False
     
     async def _handle_preference_navigation(self, query, data: str):

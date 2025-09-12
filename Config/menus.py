@@ -3,15 +3,9 @@ Menu configuration and text constants for the shifts bot.
 Centralizes all UI text and menu structures.
 """
 
-from .shift_times import shift_time_manager
-
-# =============================================================================
-# DEFAULT SHIFT TIME WINDOWS
-# =============================================================================
-
-# Access shift times through the manager
 def get_shift_times_display():
-    """Generate formatted shift times display text."""
+    """Generate formatted shift times display text by importing the manager lazily to avoid circular imports."""
+    from .shift_times import shift_time_manager
     return shift_time_manager.get_shift_times_display()
 
 # =============================================================================
@@ -128,6 +122,8 @@ EDIT_SHIFT_TIMES_MENU = {
 # Individual shift editing menus
 def create_shift_edit_menu(shift_type: str):
     """Create a menu for editing a specific shift type."""
+    # Import lazily to avoid circular import at module import time
+    from .shift_times import shift_time_manager
     all_times = shift_time_manager.user_times
     config = all_times[shift_type]
     return {

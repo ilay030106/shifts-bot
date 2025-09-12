@@ -6,10 +6,10 @@ Handles timezone selection and configuration.
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
-import json
-import os
 from datetime import datetime
-import pytz
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
+import logging
+from utils import atomic_read_json, atomic_write_json
 
 
 class TimezoneHandler:
@@ -34,22 +34,15 @@ class TimezoneHandler:
     
     def _load_timezone(self):
         """Load user timezone preference."""
-        if os.path.exists(self.config_file):
-            try:
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return data.get('timezone', self.default_timezone)
-            except (json.JSONDecodeError, FileNotFoundError):
-                pass
-        return self.default_timezone
+        data = atomic_read_json(self.config_file, default={'timezone': self.default_timezone})
+        return data.get('timezone', self.default_timezone)
     
     def _save_timezone(self):
         """Save timezone preference to file."""
         try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump({'timezone': self.user_timezone}, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error saving timezone: {e}")
+            atomic_write_json(self.config_file, {'timezone': self.user_timezone})
+        except Exception:
+            logging.getLogger(__name__).exception("Error saving timezone")
     
     async def can_handle(self, data: str) -> bool:
         """Check if this handler can process the given callback data."""
@@ -59,15 +52,14 @@ class TimezoneHandler:
     
     async def handle_callback(self, query, data: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
         """Handle timezone callback actions."""
-        print(f"TimezoneHandler: Received callback data: {data}")  # Debug
-        
+        logging.getLogger(__name__).debug("TimezoneHandler: Received callback data: %s", data)
         if data == "settings_timezone":
-            print("TimezoneHandler: Handling settings_timezone")  # Debug
+            logging.getLogger(__name__).debug("Handling settings_timezone")
             await self._show_timezone_menu(query, context)
             return True
         
         elif data == "edit_timezone":
-            print("TimezoneHandler: Handling edit_timezone")  # Debug
+            logging.getLogger(__name__).debug("Handling edit_timezone")
             await self._show_timezone_menu(query, context)
             return True
         
@@ -98,7 +90,7 @@ class TimezoneHandler:
     
     async def _show_timezone_menu(self, query, context: ContextTypes.DEFAULT_TYPE):
         """Show the timezone configuration menu."""
-        current_tz = pytz.timezone(self.user_timezone)
+        current_tz = ZoneInfo(self.user_timezone)
         current_time = datetime.now(current_tz).strftime("%H:%M")
         display_name = self.common_timezones.get(self.user_timezone, self.user_timezone)
         
@@ -161,7 +153,8 @@ class TimezoneHandler:
         page = context.user_data.get('timezone_page', 0)
         per_page = 8
         
-        all_timezones = sorted(pytz.common_timezones)
+        # available_timezones() returns a set of available tz names
+        all_timezones = sorted(available_timezones())
         start_idx = page * per_page
         end_idx = start_idx + per_page
         page_timezones = all_timezones[start_idx:end_idx]
@@ -205,7 +198,7 @@ class TimezoneHandler:
         """Set the user's timezone."""
         try:
             # Validate timezone
-            pytz.timezone(timezone)
+            ZoneInfo(timezone)
             self.user_timezone = timezone
             self._save_timezone()
             
@@ -213,7 +206,7 @@ class TimezoneHandler:
             context.user_data['timezone_config_mode'] = False
             
             display_name = self.common_timezones.get(timezone, timezone)
-            current_time = datetime.now(pytz.timezone(timezone)).strftime("%H:%M")
+            current_time = datetime.now(ZoneInfo(timezone)).strftime("%H:%M")
             
             await query.edit_message_text(
                 f"✅ <b>אזור זמן עודכן</b>\n\n"
@@ -225,7 +218,7 @@ class TimezoneHandler:
                 parse_mode=ParseMode.HTML
             )
         
-        except pytz.UnknownTimeZoneError:
+        except ZoneInfoNotFoundError:
             await query.edit_message_text(
                 f"❌ <b>אזור זמן לא תקין</b>\n\n"
                 f"אזור הזמן '{timezone}' לא קיים.",
@@ -261,7 +254,7 @@ class TimezoneHandler:
     
     def get_current_time(self) -> str:
         """Get current time in user's timezone."""
-        tz = pytz.timezone(self.user_timezone)
+        tz = ZoneInfo(self.user_timezone)
         return datetime.now(tz).strftime("%H:%M")
     
     async def handle_text_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -273,18 +266,18 @@ class TimezoneHandler:
         if user_data.get('timezone_config_mode'):
             try:
                 # Validate timezone
-                pytz.timezone(text)
-                
+                ZoneInfo(text)
+
                 # Set the timezone
                 self.user_timezone = text
                 self._save_timezone()
-                
+
                 display_name = self.common_timezones.get(text, text)
-                current_time = datetime.now(pytz.timezone(text)).strftime("%H:%M")
-                
+                current_time = datetime.now(ZoneInfo(text)).strftime("%H:%M")
+
                 # Clear the config mode
                 user_data['timezone_config_mode'] = False
-                
+
                 await update.message.reply_text(
                     f"✅ <b>אזור זמן עודכן</b>\n\n"
                     f"אזור זמן חדש: {display_name}\n"
@@ -293,8 +286,8 @@ class TimezoneHandler:
                     parse_mode=ParseMode.HTML
                 )
                 return True
-                
-            except pytz.UnknownTimeZoneError:
+
+            except ZoneInfoNotFoundError:
                 await update.message.reply_text(
                     f"❌ <b>אזור זמן לא תקין</b>\n\n"
                     f"אזור הזמן '{text}' לא קיים.\n\n"

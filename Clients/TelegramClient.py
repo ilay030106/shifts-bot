@@ -1,5 +1,6 @@
 import asyncio
 from typing import Callable, Optional, Iterable, Sequence, Any
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, MessageHandler, CommandHandler, ContextTypes, filters, BaseHandler, CallbackQueryHandler
@@ -68,13 +69,13 @@ class TelegramClient:
     # -----------------------------
     def run_polling(self, *, drop_pending_updates: bool = True):
         """Start polling in the foreground (blocking)."""
-        print("🤖 Bot is now listening for messages (polling)...")
+        logging.getLogger(__name__).info("🤖 Bot is now listening for messages (polling)...")
         # run_polling handles event loop creation internally
         self.app.run_polling(drop_pending_updates=drop_pending_updates)
 
     async def start_polling_async(self, *, drop_pending_updates: bool = True):
         """Async alternative to start polling (advanced usage)."""
-        print("🤖 Bot is now listening for messages (polling, async)...")
+        logging.getLogger(__name__).info("🤖 Bot is now listening for messages (polling, async)...")
         await self.app.initialize()
         await self.app.start()
         await self.app.updater.start_polling(drop_pending_updates=drop_pending_updates)
@@ -104,7 +105,7 @@ class TelegramClient:
 
         Provide a public webhook_url (e.g., from reverse proxy) and optional secret_token.
         """
-        print(f"🤖 Bot is now listening via webhook on {listen}:{port}{url_path}...")
+        logging.getLogger(__name__).info("🤖 Bot is now listening via webhook on %s:%s%s...", listen, port, url_path)
         self.app.run_webhook(
             listen=listen,
             port=port,
@@ -124,7 +125,7 @@ class TelegramClient:
         user_id = update.effective_user.id
         text = update.message.text or ""
         self.last_messages[user_id] = text
-        print(f"📩 User {user_id}: {text}")
+        logging.getLogger(__name__).debug("📩 User %s: %s", user_id, text)
         
 
     async def send_message(self, chat_id: int, text: str, *, reply_markup: Optional[Any] = None, parse_mode: Optional[str] = None):

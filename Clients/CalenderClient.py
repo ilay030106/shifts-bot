@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
+import json
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -56,8 +57,14 @@ class CalenderClient:
                     str(CREDENTIALS_FILE), SCOPES
                 )
                 creds = flow.run_local_server(port=0)
-            with open(TOKEN_FILE, "w") as token:
-                token.write(creds.to_json())
+            # Write token atomically to avoid corruption
+            try:
+                from utils import atomic_write_json
+                atomic_write_json(str(TOKEN_FILE), json.loads(creds.to_json()))
+            except Exception:
+                # Fallback to plain write if atomic helper fails
+                with open(TOKEN_FILE, "w") as token:
+                    token.write(creds.to_json())
 
         self.service = build("calendar", "v3", credentials=creds)
         self._default_tz = ZoneInfo(DEFAULT_TIME_ZONE)

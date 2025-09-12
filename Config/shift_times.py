@@ -3,10 +3,11 @@ Shift time management utilities.
 Handles default shift times, user preferences, and time validation.
 """
 
-import json
 import os
 from datetime import datetime
 from typing import Dict, Any, Optional
+import logging
+from utils import atomic_read_json, atomic_write_json
 
 class ShiftTimeManager:
     """Manages shift time configurations and user preferences."""
@@ -27,32 +28,32 @@ class ShiftTimeManager:
 
     def _load_user_times(self):
         """Load user preferences and merge with defaults."""
-        if not os.path.exists(self.config_file):
+        data = atomic_read_json(self.config_file, default=None)
+        if not data:
+            # Ensure file exists with defaults
             self._save_user_times()
             return
 
         try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                for shift_type, config in data.items():
-                    if shift_type in self.user_times and isinstance(config, dict):
-                        # Update only start/end times if valid
-                        if self._is_valid_time(config.get("start")):
-                            self.user_times[shift_type]["start"] = config["start"]
-                        if self._is_valid_time(config.get("end")):
-                            self.user_times[shift_type]["end"] = config["end"]
-        except (json.JSONDecodeError, Exception):
-            pass  # Use defaults if file is corrupted
+            for shift_type, config in data.items():
+                if shift_type in self.user_times and isinstance(config, dict):
+                    # Update only start/end times if valid
+                    if self._is_valid_time(config.get("start")):
+                        self.user_times[shift_type]["start"] = config["start"]
+                    if self._is_valid_time(config.get("end")):
+                        self.user_times[shift_type]["end"] = config["end"]
+        except Exception:
+            logging.getLogger(__name__).exception("Failed to load shift times, using defaults")
 
+        # Always persist merged state
         self._save_user_times()
 
     def _save_user_times(self):
         """Save current user_times to file."""
         try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(self.user_times, f, ensure_ascii=False, indent=2)
+            atomic_write_json(self.config_file, self.user_times)
         except Exception:
-            pass
+            logging.getLogger(__name__).exception("Failed to save shift times")
 
     def _is_valid_time(self, time_str: str) -> bool:
         """Validate time format (HH:MM)."""

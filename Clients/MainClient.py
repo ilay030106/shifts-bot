@@ -1,3 +1,4 @@
+import logging
 from .TelegramClient import TelegramClient
 from .CalenderClient import CalenderClient
 from Handlers import PreferencesHandler
@@ -16,6 +17,9 @@ from Config.menus import (
     HELP_TEXT, BACK_BUTTONS, MENU_CONFIGS
 )
 
+
+
+logger = logging.getLogger(__name__)
 
 
 class MainClient:
@@ -53,8 +57,7 @@ class MainClient:
             user_id = update.effective_user.id
             username = update.effective_user.username or "No username"
             first_name = update.effective_user.first_name or "No name"
-            
-            print(f"⚡ User {user_id} (@{username} - {first_name}) used command: /start")
+            logger.info("User %s (@%s - %s) used command: /start", user_id, username, first_name)
         
         await update.effective_chat.send_message(
             MAIN_MENU["title"],
@@ -71,7 +74,7 @@ class MainClient:
             username = update.effective_user.username or "No username"
             error_msg = f"[ERROR] User {user_id} (@{username}): {context.error}"
         
-        print(error_msg)
+        logger.error(error_msg)
 
     async def on_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button clicks and show different menus."""
@@ -86,7 +89,7 @@ class MainClient:
             first_name = update.effective_user.first_name or "No name"
             callback_data = query.data or "No data"
             
-            print(f"🔘 User {user_id} (@{username} - {first_name}) clicked: {callback_data}")
+            logger.info("User %s (@%s - %s) clicked: %s", user_id, username, first_name, callback_data)
         
         await query.answer()  # Acknowledge the button press
         data = query.data
@@ -170,7 +173,7 @@ class MainClient:
             self.telegram_client.last_messages[user_id] = text
             
             # Log the message
-            print(f"📩 User {user_id} (@{username} - {first_name}): {text}")
+            logger.info("User %s (@%s - %s): %s", user_id, username, first_name, text)
             
             # Route to PreferencesHandler for preference-related text input
             if await self.preferences_handler.handle_text_input(update, context):
@@ -186,7 +189,7 @@ class MainClient:
             )
         
         except Exception as e:
-            print(f"ERROR in MainClient.on_text: {e}")
+            logger.exception("ERROR in MainClient.on_text: %s", e)
             # Try to send a basic error message
             try:
                 await update.message.reply_text("❌ שגיאה בעיבוד ההודעה")
@@ -210,9 +213,9 @@ class MainClient:
 
     def run(self):
         """Start the bot."""
-        print("🤖 Starting Shifts Bot...")
-        print("✅ Handlers registered. Use /start in Telegram.")
-        print("Press Ctrl+C to stop.")
+        logger.info("🤖 Starting Shifts Bot...")
+        logger.info("✅ Handlers registered. Use /start in Telegram.")
+        logger.info("Press Ctrl+C to stop.")
         self.telegram_client.run_polling(drop_pending_updates=True)
 
 
