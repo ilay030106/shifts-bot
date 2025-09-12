@@ -27,7 +27,7 @@ class MainClient:
         self.telegram_client.add_callback_query_handler(self.on_callback)
         self.telegram_client.add_text_handler(self.on_text)
         self.telegram_client.add_error_handler(self.on_error)
-
+        
     def _build_menu(self, menu_config):
         """Build a keyboard from menu configuration."""
         # Convert the menu config buttons to InlineKeyboardButton rows

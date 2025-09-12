@@ -138,6 +138,13 @@ class TelegramClient:
     # -----------------------------
     # Inline keyboard helpers
     # -----------------------------
+    
+    @staticmethod
+    def validate_kb_btns(rows):
+        return [TelegramClient.inline_buttons_row(row) 
+                   if not isinstance(row, list) or not all(isinstance(btn, InlineKeyboardButton) for btn in row)
+                   else row for row in rows]
+
     @staticmethod
     def inline_kb(rows: Sequence[Sequence[InlineKeyboardButton]]):
         """
@@ -152,7 +159,9 @@ class TelegramClient:
         Example:
         - TelegramClient.inline_kb([[InlineKeyboardButton("OK", callback_data="ok")]])
         """
-        return InlineKeyboardMarkup(rows)
+        
+
+        return InlineKeyboardMarkup(TelegramClient.validate_kb_btns(rows))
 
     @staticmethod
     def inline_buttons_row(buttons: Iterable[tuple[str, str]]):
@@ -168,7 +177,9 @@ class TelegramClient:
         Example:
         - TelegramClient.inline_buttons_row([("Yes", "yes"), ("No", "no")])
         """
-        return [InlineKeyboardButton(text, callback_data=data) for text, data in buttons]
+        return [InlineKeyboardButton(text, callback_data=data)
+                for item in buttons
+                for text, data in [item if isinstance(item, (list, tuple)) and len(item) == 2 else (str(item), str(item))]]
 
     # -----------------------------
     # Simpler keyboard helpers

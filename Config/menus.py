@@ -110,10 +110,12 @@ EDIT_SHIFT_TIMES_MENU = {
     "buttons": [
         [
             ("🌅 ערוך בוקר", "edit_morning_shift"),
-            ("🌇 ערוך אמצע", "edit_afternoon_shift")
+            ("🌇 ערוך אמצע", "edit_noon_shift")
         ],
         [
-            
+            ("🌆 ערוך ערב", "edit_evening_shift")
+        ],
+        [
             ("↩️ איפוס לברירת מחדל", "reset_shift_times")
         ],
         [
@@ -348,7 +350,8 @@ MENU_CONFIGS = {
     # Shift time editing menus
     "edit_shift_times": EDIT_SHIFT_TIMES_MENU,
     "edit_morning_shift": lambda: create_shift_edit_menu("morning"),
-    "edit_afternoon_shift": lambda: create_shift_edit_menu("afternoon"), 
+    "edit_noon_shift": lambda: create_shift_edit_menu("noon"),
+    "edit_evening_shift": lambda: create_shift_edit_menu("evening"), 
     
     
     # Availability submenus

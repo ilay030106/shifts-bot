@@ -47,10 +47,14 @@ class PreferencesHandler:
     
     async def handle_callback(self, query, data: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
         """Route callback to appropriate sub-handler or handle main navigation."""
+        print(f"PreferencesHandler: Received callback data: {data}")  # Debug
         
         # Try each sub-handler first
         for handler_name, handler in self.handlers.items():
-            if await handler.can_handle(data):
+            can_handle = await handler.can_handle(data)
+            print(f"PreferencesHandler: {handler_name} can_handle({data}): {can_handle}")  # Debug
+            if can_handle:
+                print(f"PreferencesHandler: Routing to {handler_name}")  # Debug
                 return await handler.handle_callback(query, data, context)
         
         # Handle main preference navigation
