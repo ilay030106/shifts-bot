@@ -26,7 +26,7 @@ class ShiftTimesHandler:
         
         return (
             data in shift_time_actions or
-            data.startswith(("edit_start_", "edit_end_", "save_shift_", "cancel_edit_"))
+            data.startswith(("edit_times_", "edit_start_", "edit_end_", "save_shift_", "cancel_edit_"))
         )
     
     async def handle_callback(self, query, data: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -40,10 +40,15 @@ class ShiftTimesHandler:
         # Individual shift editing menus
         elif data in ["edit_morning_shift", "edit_noon_shift", "edit_evening_shift"]:
             shift_type = data.replace("edit_", "").replace("_shift", "")
-            await self._show_individual_shift_menu(query, shift_type)
+            await self._show_combined_shift_editor(query, shift_type, context)
             return True
         
         # Edit specific time components
+        elif data.startswith("edit_times_"):
+            shift_type = data.replace("edit_times_", "")
+            await self._show_combined_shift_editor(query, shift_type, context)
+            return True
+        
         elif data.startswith("edit_start_"):
             shift_type = data.replace("edit_start_", "")
             await self._handle_edit_start_time(query, shift_type, context)
@@ -62,7 +67,7 @@ class ShiftTimesHandler:
         
         elif data.startswith("cancel_edit_"):
             shift_type = data.replace("cancel_edit_", "")
-            await self._handle_cancel_edit(query, shift_type)
+            await self._handle_cancel_edit(query, shift_type, context)
             return True
         
         # Reset all shift times
@@ -84,11 +89,20 @@ class ShiftTimesHandler:
         
         # Validate time format
         if not self._validate_time_format(time_input):
+            # Extract shift type from waiting_for
+            if waiting_for.startswith('start_time_'):
+                shift_type = waiting_for.replace('start_time_', '')
+            else:
+                shift_type = waiting_for.replace('end_time_', '')
+                
             await update.message.reply_text(
                 "❌ פורמט שעה לא תקין!\n\n"
                 "השתמש בפורמט HH:MM (לדוגמה: 08:30)",
                 reply_markup=self.telegram_client.inline_kb([
-                    self.telegram_client.inline_buttons_row([("❌ ביטול", "edit_shift_times")])
+                    self.telegram_client.inline_buttons_row([
+                        ("🔄 נסה שוב", f"edit_times_{shift_type}"),
+                        ("❌ ביטול", f"cancel_edit_{shift_type}")
+                    ])
                 ])
             )
             return True
@@ -112,9 +126,66 @@ class ShiftTimesHandler:
         # Clear waiting state
         del context.user_data['waiting_for']
         
-        # Show confirmation
-        await self._show_time_confirmation(update, shift_type, context)
+        # Show updated combined editor instead of confirmation
+        await self._show_combined_shift_editor_via_message(update, shift_type, context)
         return True
+    
+    async def _show_combined_shift_editor_via_message(self, update: Update, shift_type: str, context: ContextTypes.DEFAULT_TYPE):
+        """Show combined editor via message (for text input responses)."""
+        current_times = self.shift_manager.user_times
+        shift_config = current_times[shift_type]
+        
+        # Get pending changes if any
+        pending_changes = context.user_data.get('pending_shift_changes', {}).get(shift_type, {})
+        current_start = pending_changes.get('start', shift_config['start'])
+        current_end = pending_changes.get('end', shift_config['end'])
+        
+        # Calculate duration based on current/pending times
+        start_time = current_start
+        end_time = current_end
+        
+        try:
+            from datetime import datetime
+            start_dt = datetime.strptime(start_time, "%H:%M")
+            end_dt = datetime.strptime(end_time, "%H:%M")
+            
+            # Handle overnight shifts
+            if end_dt < start_dt:
+                end_dt = end_dt.replace(day=end_dt.day + 1)
+            
+            duration_hours = (end_dt - start_dt).total_seconds() / 3600
+            duration_text = f"{duration_hours:.1f} שעות"
+        except:
+            duration_text = "לא זמין"
+        
+        editor_text = (
+            f"⏰ <b>עריכת משמרת {shift_config['name']}</b>\n\n"
+            f"{shift_config['emoji']} <b>זמני נוכחיים:</b>\n"
+            f"• התחלה: {current_start}\n"
+            f"• סיום: {current_end}\n"
+            f"• משך: {duration_text}\n\n"
+            f"בחר מה לערוך:"
+        )
+        
+        buttons = [
+            self.telegram_client.inline_buttons_row([
+                ("⏰ ערוך התחלה", f"edit_start_{shift_type}"),
+                ("⏰ ערוך סיום", f"edit_end_{shift_type}")
+            ]),
+            self.telegram_client.inline_buttons_row([
+                ("💾 שמור שינויים", f"save_shift_{shift_type}"),
+                ("❌ בטל", f"cancel_edit_{shift_type}")
+            ]),
+            self.telegram_client.inline_buttons_row([
+                ("🔙 חזרה לכל המשמרות", "edit_shift_times")
+            ])
+        ]
+        
+        await update.message.reply_text(
+            editor_text,
+            reply_markup=self.telegram_client.inline_kb(buttons),
+            parse_mode=ParseMode.HTML
+        )
     
     async def _show_shift_times_menu(self, query):
         """Show the main shift times editing menu."""
@@ -137,19 +208,60 @@ class ShiftTimesHandler:
             parse_mode=ParseMode.HTML
         )
     
-    async def _show_individual_shift_menu(self, query, shift_type: str):
-        """Show menu for editing a specific shift."""
-        menu_config = MENU_CONFIGS[f"edit_{shift_type}_shift"]()
+    async def _show_combined_shift_editor(self, query, shift_type: str, context: ContextTypes.DEFAULT_TYPE):
+        """Show combined editor for both start and end times."""
+        current_times = self.shift_manager.user_times
+        shift_config = current_times[shift_type]
         
-        # Build proper keyboard
-        button_rows = []
-        for row in menu_config["buttons"]:
-            button_row = self.telegram_client.inline_buttons_row(row)
-            button_rows.append(button_row)
+        # Get pending changes if any
+        pending_changes = context.user_data.get('pending_shift_changes', {}).get(shift_type, {})
+        current_start = pending_changes.get('start', shift_config['start'])
+        current_end = pending_changes.get('end', shift_config['end'])
+        
+        # Calculate duration based on current/pending times
+        start_time = current_start
+        end_time = current_end
+        
+        try:
+            from datetime import datetime
+            start_dt = datetime.strptime(start_time, "%H:%M")
+            end_dt = datetime.strptime(end_time, "%H:%M")
+            
+            # Handle overnight shifts
+            if end_dt < start_dt:
+                end_dt = end_dt.replace(day=end_dt.day + 1)
+            
+            duration_hours = (end_dt - start_dt).total_seconds() / 3600
+            duration_text = f"{duration_hours:.1f} שעות"
+        except:
+            duration_text = "לא זמין"
+        
+        editor_text = (
+            f"⏰ <b>עריכת משמרת {shift_config['name']}</b>\n\n"
+            f"{shift_config['emoji']} <b>זמני נוכחיים:</b>\n"
+            f"• התחלה: {current_start}\n"
+            f"• סיום: {current_end}\n"
+            f"• משך: {duration_text}\n\n"
+            f"בחר מה לערוך:"
+        )
+        
+        buttons = [
+            self.telegram_client.inline_buttons_row([
+                ("⏰ ערוך התחלה", f"edit_start_{shift_type}"),
+                ("⏰ ערוך סיום", f"edit_end_{shift_type}")
+            ]),
+            self.telegram_client.inline_buttons_row([
+                ("💾 שמור שינויים", f"save_shift_{shift_type}"),
+                ("❌ בטל", f"cancel_edit_{shift_type}")
+            ]),
+            self.telegram_client.inline_buttons_row([
+                ("🔙 חזרה לכל המשמרות", "edit_shift_times")
+            ])
+        ]
         
         await query.edit_message_text(
-            menu_config["title"],
-            reply_markup=self.telegram_client.inline_kb(button_rows),
+            editor_text,
+            reply_markup=self.telegram_client.inline_kb(buttons),
             parse_mode=ParseMode.HTML
         )
     
@@ -204,12 +316,19 @@ class ShiftTimesHandler:
             )
             
             if success:
+                # Clear pending changes
+                if shift_type in pending_changes:
+                    del pending_changes[shift_type]
+                
                 await query.edit_message_text(
                     f"✅ <b>נשמר בהצלחה!</b>\n\n"
                     f"זמני המשמרת עודכנו:\n"
                     f"{self.shift_manager.get_shift_times_display()}",
                     reply_markup=self.telegram_client.inline_kb([
-                        self.telegram_client.inline_buttons_row([("🔙 חזרה לעריכת זמנים", "edit_shift_times")])
+                        self.telegram_client.inline_buttons_row([
+                            ("🔄 ערוך שוב", f"edit_times_{shift_type}"),
+                            ("🔙 חזרה לכל המשמרות", "edit_shift_times")
+                        ])
                     ]),
                     parse_mode=ParseMode.HTML
                 )
@@ -219,7 +338,10 @@ class ShiftTimesHandler:
                     f"לא הצלחתי לשמור את השינויים.\n"
                     f"נסה שוב.",
                     reply_markup=self.telegram_client.inline_kb([
-                        self.telegram_client.inline_buttons_row([("🔄 נסה שוב", f"edit_{shift_type}_shift")])
+                        self.telegram_client.inline_buttons_row([
+                            ("🔄 נסה שוב", f"edit_times_{shift_type}"),
+                            ("❌ בטל", f"cancel_edit_{shift_type}")
+                        ])
                     ]),
                     parse_mode=ParseMode.HTML
                 )
@@ -236,9 +358,14 @@ class ShiftTimesHandler:
                 parse_mode=ParseMode.HTML
             )
     
-    async def _handle_cancel_edit(self, query, shift_type: str):
-        """Cancel editing and return to shift menu."""
-        await self._show_individual_shift_menu(query, shift_type)
+    async def _handle_cancel_edit(self, query, shift_type: str, context: ContextTypes.DEFAULT_TYPE = None):
+        """Cancel editing and clear pending changes."""
+        # Clear any pending changes for this shift
+        pending_changes = context.user_data.get('pending_shift_changes', {}) if context else {}
+        if shift_type in pending_changes:
+            del pending_changes[shift_type]
+        
+        await self._show_combined_shift_editor(query, shift_type, context or {})
     
     async def _handle_reset_all_times(self, query):
         """Reset all shift times to defaults."""
