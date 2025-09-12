@@ -8,7 +8,6 @@ Preferences Sub-handlers (in Handlers.Preferences):
 - ShiftTimesHandler: Specialized handler for shift time management
 - RemindersHandler: Specialized handler for reminder settings
 - TimezoneHandler: Specialized handler for timezone preferences
-- TemplatesHandler: Specialized handler for shift templates
 
 Usage:
     from Handlers import PreferencesHandler
@@ -25,14 +24,12 @@ from .PreferencesHandler import PreferencesHandler
 from .Preferences import (
     ShiftTimesHandler,
     RemindersHandler, 
-    TimezoneHandler,
-    TemplatesHandler
+    TimezoneHandler
 )
 
 __all__ = [
     'PreferencesHandler',
     'ShiftTimesHandler',
     'RemindersHandler',
-    'TimezoneHandler', 
-    'TemplatesHandler',
+    'TimezoneHandler',
 ]

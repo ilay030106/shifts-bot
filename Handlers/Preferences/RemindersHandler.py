@@ -76,14 +76,23 @@ class RemindersHandler:
             await self._show_remove_reminders_menu(query)
             return True
         
+        elif data == "add_custom_reminder":
+            await self._show_custom_reminder_input(query, context)
+            return True
+        
         elif data.startswith("remove_reminder_"):
             minutes = int(data.replace("remove_reminder_", ""))
             await self._remove_reminder(query, minutes)
             return True
+        
+        elif data == "reset_reminders":
+            await self._reset_reminders(query)
+            return True
     
     async def _show_reminders_menu(self, query):
         """Show the reminders configuration menu."""
-        reminders_list = ", ".join([f"{m} דק'" for m in self.user_reminders["before_shift"]])
+        formatted_reminders = [self._format_time(m) for m in self.user_reminders["before_shift"]]
+        reminders_list = ", ".join(formatted_reminders) if formatted_reminders else "אין התראות"
         status = "פעיל" if self.user_reminders["enabled"] else "כבוי"
         sound_status = "פעיל" if self.user_reminders["sound_enabled"] else "כבוי"
         
@@ -194,7 +203,8 @@ class RemindersHandler:
         
         buttons = []
         for minutes in self.user_reminders["before_shift"]:
-            buttons.append((f"🗑️ {minutes} דקות", f"remove_reminder_{minutes}"))
+            formatted_time = self._format_time(minutes)
+            buttons.append((f"🗑️ הסר: {formatted_time}", f"remove_reminder_{minutes}"))
         
         # Group buttons into rows of 2
         button_rows = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
@@ -214,15 +224,20 @@ class RemindersHandler:
     
     async def _show_custom_reminder_input(self, query, context: ContextTypes.DEFAULT_TYPE):
         """Show input prompt for custom reminder time."""
-        # Set custom reminder input mode
-        context.user_data['custom_reminder_mode'] = True
+        # Set waiting_for to indicate custom reminder input mode
+        context.user_data['waiting_for'] = 'reminder_custom'
         
         await query.edit_message_text(
             f"⏰ <b>התראה מותאמת אישית</b>\n\n"
-            f"הקלד מספר דקות (1-1440) או 'ביטול' כדי לחזור:\n\n"
+            f"הקלד זמן התראה או 'ביטול' כדי לחזור:\n\n"
+            f"פורמטים נתמכים:\n"
+            f"• דקות: 45, 120m, 2h\n"
+            f"• שעות: 5h, 12h\n"
+            f"• ימים: 2d, 7d\n\n"
             f"דוגמאות:\n"
-            f"• 45 - התראה 45 דקות לפני\n"
-            f"• 120 - התראה 2 שעות לפני\n"
+            f"• 30 - 30 דקות לפני\n"
+            f"• 2h - 2 שעות לפני\n"
+            f"• 3d - 3 ימים לפני\n"
             f"• ביטול - חזרה לתפריט",
             reply_markup=self.telegram_client.inline_kb([
                 [("🔙 חזרה", "edit_reminders")]
@@ -236,16 +251,18 @@ class RemindersHandler:
             self.user_reminders["before_shift"].remove(minutes)
             self._save_reminders()
             
+            formatted_time = self._format_time(minutes)
             await query.edit_message_text(
-                f"✅ <b>התראה של {minutes} דקות הוסרה</b>",
+                f"✅ <b>התראה של {formatted_time} הוסרה</b>",
                 reply_markup=self.telegram_client.inline_kb([
                     [("🔙 חזרה", "edit_reminders")]
                 ]),
                 parse_mode=ParseMode.HTML
             )
         else:
+            formatted_time = self._format_time(minutes)
             await query.edit_message_text(
-                f"❌ התראה של {minutes} דקות לא נמצאה",
+                f"❌ התראה של {formatted_time} לא נמצאה",
                 reply_markup=self.telegram_client.inline_kb([
                     [("🔙 חזרה", "edit_reminders")]
                 ]),
@@ -254,17 +271,37 @@ class RemindersHandler:
     
     async def _reset_reminders(self, query):
         """Reset reminders to defaults."""
-        self.user_reminders = self.default_reminders.copy()
+        import copy
+        self.user_reminders = copy.deepcopy(self.default_reminders)
+        print(f"DEBUG: Resetting reminders to: {self.user_reminders}")
         self._save_reminders()
+        
+        # Verify the file was saved
+        try:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                saved_data = json.load(f)
+            print(f"DEBUG: Saved data in file: {saved_data}")
+        except Exception as e:
+            print(f"DEBUG: Error reading saved file: {e}")
+        
+        formatted_defaults = [self._format_time(m) for m in self.default_reminders["before_shift"]]
+        defaults_list = ", ".join(formatted_defaults)
         
         await query.edit_message_text(
             f"↩️ <b>התראות אופסו לברירת המחדל</b>\n\n"
-            f"התראות: 30, 15 דקות לפני המשמרת",
+            f"התראות: {defaults_list}",
             reply_markup=self.telegram_client.inline_kb([
                 [("🔙 חזרה", "edit_reminders")]
             ]),
             parse_mode=ParseMode.HTML
         )
+    
+    async def reset_all_reminders(self, query=None):
+        """Reset reminders to defaults without showing message (for reset all)."""
+        import copy
+        self.user_reminders = copy.deepcopy(self.default_reminders)
+        self._save_reminders()
+        print(f"DEBUG: Reset all reminders to: {self.user_reminders}")
     
     async def handle_text_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
         """Handle text input for reminder settings."""
@@ -272,9 +309,9 @@ class RemindersHandler:
         text = update.message.text.strip().lower()
         
         # Check if user is in custom reminder input mode
-        if user_data.get('custom_reminder_mode'):
-            # Clear the mode
-            user_data['custom_reminder_mode'] = False
+        if user_data.get('waiting_for') == 'reminder_custom':
+            # Clear the waiting_for
+            user_data['waiting_for'] = None
             
             if text == 'ביטול' or text == 'cancel':
                 await update.message.reply_text(
@@ -285,17 +322,25 @@ class RemindersHandler:
                 return True
             
             try:
-                minutes = int(text)
+                # Parse the time input
+                minutes = self._parse_time_input(text)
                 
-                # Validate range (1 minute to 24 hours)
-                if minutes < 1 or minutes > 1440:
-                    raise ValueError("Invalid range")
+                # Validate range (1 minute to 30 days)
+                if minutes < 1 or minutes > 43200:  # 30 days max
+                    await update.message.reply_text(
+                        f"❌ <b>זמן לא תקין</b>\n\n"
+                        f"זמן התראה חייב להיות בין דקה אחת ל-30 ימים.\n\n"
+                        f"הקלד /preferences כדי לחזור להעדפות.",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return True
                 
                 # Check if reminder already exists
                 if minutes in self.user_reminders["before_shift"]:
+                    formatted_time = self._format_time(minutes)
                     await update.message.reply_text(
                         f"⚠️ <b>התראה כבר קיימת</b>\n\n"
-                        f"התראה של {minutes} דקות כבר מוגדרת.\n\n"
+                        f"התראה של {formatted_time} כבר מוגדרת.\n\n"
                         f"הקלד /preferences כדי לחזור להעדפות.",
                         parse_mode=ParseMode.HTML
                     )
@@ -306,9 +351,10 @@ class RemindersHandler:
                 self.user_reminders["before_shift"].sort()
                 self._save_reminders()
                 
+                formatted_time = self._format_time(minutes)
                 await update.message.reply_text(
                     f"✅ <b>התראה נוספה בהצלחה</b>\n\n"
-                    f"התראה חדשה: {minutes} דקות לפני המשמרת\n\n"
+                    f"התראה חדשה: {formatted_time} לפני המשמרת\n\n"
                     f"הקלד /preferences כדי לחזור להעדפות.",
                     parse_mode=ParseMode.HTML
                 )
@@ -336,7 +382,7 @@ class RemindersHandler:
             
             await query.edit_message_text(
                 f"✅ <b>התראה הוסרה</b>\n\n"
-                f"התראה של {minutes} דקות לפני המשמרת הוסרה בהצלחה.",
+                f"התראה של {self._format_time(minutes)} לפני המשמרת הוסרה בהצלחה.",
                 reply_markup=self.telegram_client.inline_kb([
                     [("🔙 חזרה להגדרות התראות", "edit_reminders")]
                 ]),
@@ -352,10 +398,80 @@ class RemindersHandler:
                 parse_mode=ParseMode.HTML
             )
     
+        return False
+    
+    def _parse_time_input(self, text: str) -> int:
+        """Parse time input in various formats and return minutes.
+        
+        Supported formats:
+        - "45" or "45m" -> 45 minutes
+        - "2h" -> 120 minutes
+        - "3d" -> 4320 minutes
+        """
+        text = text.strip().lower()
+        
+        # Handle days
+        if text.endswith('d') or 'days' in text or 'יום' in text or 'ימים' in text:
+            if text.endswith('d'):
+                num = int(text[:-1])
+            elif 'days' in text:
+                num = int(text.replace('days', '').strip())
+            elif 'יום' in text:
+                num = int(text.replace('יום', '').strip())
+            elif 'ימים' in text:
+                num = int(text.replace('ימים', '').strip())
+            else:
+                raise ValueError("Invalid days format")
+            return num * 24 * 60  # Convert days to minutes
+        
+        # Handle hours
+        if text.endswith('h') or 'hours' in text or 'שעות' in text or 'שעה' in text:
+            if text.endswith('h'):
+                num = int(text[:-1])
+            elif 'hours' in text:
+                num = int(text.replace('hours', '').strip())
+            elif 'שעות' in text:
+                num = int(text.replace('שעות', '').strip())
+            elif 'שעה' in text:
+                num = int(text.replace('שעה', '').strip())
+            else:
+                raise ValueError("Invalid hours format")
+            return num * 60  # Convert hours to minutes
+        
+        # Handle minutes (default)
+        if text.endswith('m') or 'minutes' in text or 'דקות' in text or 'דקה' in text:
+            if text.endswith('m'):
+                num = int(text[:-1])
+            elif 'minutes' in text:
+                num = int(text.replace('minutes', '').strip())
+            elif 'דקות' in text:
+                num = int(text.replace('דקות', '').strip())
+            elif 'דקה' in text:
+                num = int(text.replace('דקה', '').strip())
+            else:
+                raise ValueError("Invalid minutes format")
+        else:
+            # Assume plain number is minutes
+            num = int(text)
+        
+        return num
+    
+    def _format_time(self, minutes: int) -> str:
+        """Format minutes into human-readable time string."""
+        if minutes >= 1440:  # 24 hours or more
+            days = minutes // 1440
+            return f"לפני {days} ימים" if days > 1 else f"לפני {days} יום"
+        elif minutes >= 60:  # 1 hour or more
+            hours = minutes // 60
+            return f"לפני {hours} שעות" if hours > 1 else f"לפני {hours} שעה"
+        else:  # less than 1 hour
+            return f"לפני {minutes} דקות"
+    
     def get_reminders_display(self) -> str:
         """Get formatted reminders display."""
         if not self.user_reminders["enabled"]:
             return "התראות: כבויות"
         
-        reminders = ", ".join([f"{m} דק'" for m in sorted(self.user_reminders["before_shift"], reverse=True)])
+        formatted_reminders = [self._format_time(m) for m in sorted(self.user_reminders["before_shift"], reverse=True)]
+        reminders = ", ".join(formatted_reminders)
         return f"התראות: {reminders or 'אין'}"

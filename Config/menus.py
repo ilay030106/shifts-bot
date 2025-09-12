@@ -42,8 +42,10 @@ PREFERENCES_MENU = {
             ("התראות", "settings_reminders")
         ],
         [
-            ("אזור זמן", "settings_timezone"),
-            ("תבניות", "settings_templates")
+            ("אזור זמן", "settings_timezone")
+        ],
+        [
+            ("↩️ איפוס כל ההעדפות", "reset_all_preferences")
         ],
         [
             ("🔙 חזרה לתפריט הראשי", "menu_main")
@@ -90,7 +92,6 @@ PREFERENCES_SHIFT_TIMES = {
         "⚙️ <b>העדפות → זמני משמרות</b>\n\n"
         "הגדר את זמני המשמרות שלך:\n"
         "{shift_times_display}\n\n"
-        "(כאן תהיה אפשרות לערוך)"
     ),
     "buttons": [
         [
@@ -153,10 +154,7 @@ def create_shift_edit_menu(shift_type: str):
 PREFERENCES_REMINDERS = {
     "title": (
         "⚙️ <b>העדפות → התראות</b>\n\n"
-        "הגדרות התראות:\n"
-        "• התראה 30 דקות לפני\n"
-        "• התראה 15 דקות לפני\n\n"
-        "(כאן תהיה אפשרות לערוך)"
+        "{reminders_display}\n"
     ),
     "buttons": [
         [
@@ -169,29 +167,12 @@ PREFERENCES_REMINDERS = {
 PREFERENCES_TIMEZONE = {
     "title": (
         "⚙️ <b>העדפות → אזור זמן</b>\n\n"
-        "אזור זמן נוכחי: Asia/Jerusalem\n\n"
-        "(כאן תהיה אפשרות לשנות)"
+        "{timezone_display}\n"
+        
     ),
     "buttons": [
         [
             ("שנה אזור זמן", "edit_timezone"),
-            ("🔙 חזרה להעדפות", "preferences_menu")
-        ]
-    ]
-}
-
-PREFERENCES_TEMPLATES = {
-    "title": (
-        "⚙️ <b>העדפות → תבניות</b>\n\n"
-        "תבניות עבור תיאור משמרות:\n"
-        "• משמרת בוקר\n"
-        "• משמרת ערב\n"
-        "• משמרת לילה\n\n"
-        "(כאן תהיה אפשרות לערוך)"
-    ),
-    "buttons": [
-        [
-            ("ערוך תבניות", "edit_templates"),
             ("🔙 חזרה להעדפות", "preferences_menu")
         ]
     ]
@@ -320,7 +301,6 @@ ACTION_NAMES = {
     "shift_times": "זמני משמרות",
     "reminders": "התראות", 
     "timezone": "אזור זמן",
-    "templates": "תבניות",
     "this_week": "השבוע הזה",
     "next_week": "השבוע הקרוב",
     "custom": "טווח מותאם",
@@ -345,7 +325,6 @@ MENU_CONFIGS = {
     "settings_shift_times": PREFERENCES_SHIFT_TIMES,
     "settings_reminders": PREFERENCES_REMINDERS,
     "settings_timezone": PREFERENCES_TIMEZONE,
-    "settings_templates": PREFERENCES_TEMPLATES,
     
     # Shift time editing menus
     "edit_shift_times": EDIT_SHIFT_TIMES_MENU,

@@ -1,7 +1,7 @@
 {
   "before_shift": [
-    15,
-    30
+    30,
+    15
   ],
   "enabled": true,
   "sound_enabled": true
